@@ -120,18 +120,17 @@ def get_detections(
 
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     limit_clause = f" LIMIT {limit}" if limit else ""
-    query = f"SELECT fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"  # nosec B608 - measurement is constant; filters are validated numeric values or a bound label
-    return _influx_points(query, bind_params or None)
+    query = f"SELECT frame_id, fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"
+    return _influx_points(query, bind_params=bind_params)
 
 
 @api_app.get("/detections/labels")
 def get_detection_labels():
     """Return distinct detection labels currently stored in InfluxDB."""
-    # Reads the tag index only; no detection rows are scanned.
     points = _influx_points(
         f'SHOW TAG VALUES FROM "{FUSION_MEASUREMENT}" WITH KEY = "fusion_classification"'
     )
-    return sorted({p["value"] for p in points if p.get("value")})
+    return sorted({point["value"] for point in points if point.get("value")})
 
 
 @api_app.get("/detections/summary")
@@ -171,7 +170,7 @@ def get_summary(
         summary[label]["min_confidence"] = float(p.get("min_confidence") or 0.0)
         summary[label]["label"] = label
         summary[label]["fusion_mode"] = str(os.getenv("FUSION_MODE", "OR"))
-    return summary
+    return {"by_class": list(summary.values())}
 
 
 @api_app.get("/detections/max_id")
