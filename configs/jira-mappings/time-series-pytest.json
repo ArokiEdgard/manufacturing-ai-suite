@@ -1,0 +1,6 @@
+{
+  "description": "Caller-owned mapping: replace the example key with each exact JUnit classname::test_name and its Jira test-case key.",
+  "tests": {
+    "<junit_classname>::<test_name>": ""
+  }
+}
