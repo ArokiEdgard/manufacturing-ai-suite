@@ -1,5 +1,17 @@
 # Release Notes: Pallet Defect Detection and PCB Anomaly Detection
 
+## Version 2.9.0 (Pallet Defect Detection) and Version 1.5.0 (PCB Anomaly Detection)
+
+**Improved**:
+
+- Consumed latest DL Streamer Pipeline Server version 2026.3.0.
+- Updated the Pallet Defect Detection model with Geti 3.2.0.
+- Stability and robustness improvements in the script that calculates stream density.
+
+**Removed**:
+
+- Removed helm deployment.
+
 ## Version 2.8.1 (Pallet Defect Detection) and Version 1.4.1 (PCB Anomaly Detection)
 
 **Release Date**: September 18, 2026

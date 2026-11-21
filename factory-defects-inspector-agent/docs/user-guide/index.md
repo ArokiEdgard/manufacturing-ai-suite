@@ -6,28 +6,55 @@
 
 # Factory Defects Inspector Agent
 
-The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousResearch/hermes-agent) on a central host that helps people investigate defects and anomalies reported by manufacturing applications on remote edge nodes, such as weld defect detection and wind-turbine anomaly detection. It supports human inspection and decisions; it is not a safety interlock and does not make final pass/fail calls.
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/factory-defects-inspector-agent">
+     GitHub
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/factory-defects-inspector-agent/README.md">
+     Readme
+  </a>
+</div>
+hide_directive-->
 
-The installer (`fleet-setup.sh`) sets the agent up. It uses deployment skills to prepare and deploy the applications, exposes each node's MCP server through an SSH tunnel, and registers the servers with Hermes. These "fleet" scripts and settings manage nodes and deployments; inspection happens afterward through Hermes chat.
+The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+on a central host. It helps investigate defects and anomalies that manufacturing applications
+report on remote edge nodes. Examples are weld defect detection and wind-turbine anomaly detection.
 
-This guide helps two audiences:
+> [!IMPORTANT]
+> The agent supports human decisions. It is not a safety interlock. It does not make final pass or fail decisions.
 
-- **Administrator:** prepares the central host and edge nodes, configures the inventory, and runs the setup. See [Get Started](./get-started.md).
-- **Operator:** after setup, asks Hermes to inspect or operate the registered nodes in natural language. See [Use Hermes as an Operator](./how-to-guides/use-hermes.md).
+## Who uses this guide
 
-## What the installer sets up
+| Role | Task | Start here |
+| --- | --- | --- |
+| Administrator | Prepare the central host and edge nodes, then run the installer. | [Get Started](./get-started.md) |
+| Operator | Ask Hermes about the registered nodes in natural language. | [Use Hermes as an Operator](./how-to-guides/use-hermes-as-operator.md) |
 
-For each deployment in the inventory, the installer can:
+![Administrator and operator flows](./_assets/fdi-admin-operator-flows.drawio.svg)
 
-1. Create a Hermes profile configured to run the deployment skill's commands on the node over SSH.
-2. Prepare the node and deploy the selected manufacturing application and its MCP server.
-3. Establish a local SSH tunnel to the node's MCP endpoint, retrieve and pin its TLS certificate, and register the MCP server with Hermes.
+## What the installer does
 
-After setup, an operator can start a new Hermes session and ask about the registered nodes. For example:
+The installer is the `fleet-setup.sh` script. For each deployment in the inventory, it does these tasks:
 
-> Describe node1 and node2, then summarize their status.
+1. Creates a Hermes profile that runs commands on the node over SSH.
+2. Prepares the node. Deploys the manufacturing application and its MCP server.
+3. Opens an SSH tunnel to the MCP server of the node.
+4. Pins the TLS certificate of the MCP server.
+5. Registers the MCP server with Hermes.
 
-The available nodes, skills, prompts, and MCP tools depend on the configured inventory.
+After setup, the operator starts a new Hermes session. Example request:
+
+```text
+Describe node1 and node2, then summarize their status.
+```
+
+The inventory defines the available nodes, skills, prompts, and MCP tools.
+
+## See Also
+
+- [Weld Defect Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/weld-defect-detection/index.html)
+- [Wind Turbine Anomaly Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html)
 
 <!--hide_directive
 :::{toctree}
@@ -35,7 +62,7 @@ The available nodes, skills, prompts, and MCP tools depend on the configured inv
 
 get-started.md
 how-to-guides.md
-release-notes.md
+Release Notes <./release-notes.md>
 
 :::
 hide_directive-->

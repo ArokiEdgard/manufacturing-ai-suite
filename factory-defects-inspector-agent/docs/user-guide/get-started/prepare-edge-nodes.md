@@ -1,136 +1,197 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Prepare edge nodes for the Factory Defects Inspector Agent by creating or
+      reusing the deployment account and configuring proxies.
+   :keywords: edge node, deployment account, Docker, proxy, apt, Git
+```
+hide_directive-->
+
 # Prepare the Edge Nodes
 
-Run the following on each edge node from an existing administrator account, not on the central Hermes host.
+Do the tasks on this page on each edge node. Use an existing administrator account. Do not
+use the central Hermes host.
 
-## Create or reuse the deployment account
+1. [Create or Reuse the Deployment Account](#create-or-reuse-the-deployment-account)
+2. [Configure a Proxy](#configure-a-proxy-only-if-required) (only if your network needs one)
 
-Check whether the account already exists:
+## Create or Reuse the Deployment Account
 
-```bash
-id deploy
-```
+> [!CAUTION]
+> Do not delete and recreate an existing deployment account. This removes its home
+> directory, keys, configuration, and application data.
 
-If it does not exist, create it:
+1. Check if the account exists:
 
-```bash
-sudo useradd -m -s /bin/bash deploy
-sudo passwd deploy
-```
+   ```bash
+   id deploy
+   ```
 
-Set the password interactively; do not put it in a script or chat. Reuse an existing deployment account rather than deleting and recreating it, which would remove its home directory, keys, configuration, and application data.
+2. If the account does not exist, create it. Do not put the password in a script or a
+   chat. Enter the password when the command asks for it:
 
-Once Docker is installed and its `docker` group exists, grant the account Docker access:
+   ```bash
+   sudo useradd -m -s /bin/bash deploy
+   sudo passwd deploy
+   ```
 
-```bash
-sudo usermod -aG docker deploy
-```
+3. Give the account Docker access. Do this after Docker is installed and the `docker` group exists:
 
-If the installer must install packages or change group membership, arrange the required `sudo` permissions under your site's policy. On Ubuntu/Debian, an administrator can grant temporary membership in the `sudo` group:
+   ```bash
+   sudo usermod -aG docker deploy
+   ```
 
-```bash
-sudo usermod -aG sudo deploy
-```
+4. If the installer must install packages, give the account `sudo` access. Follow the policy of your site.
 
-This grants broad administrative access, so prefer having an administrator preinstall packages and configure Docker access where possible. Remove temporary sudo access after preparation if it is no longer needed. Docker group membership itself remains root-equivalent.
+   > [!CAUTION]
+   > The next command gives broad administrative access. If possible, install the
+   > packages and configure Docker access yourself. Remove the `sudo` access after
+   > preparation.
 
-Open a fresh login session so the new group memberships take effect:
+   On Ubuntu or Debian, this command gives temporary access:
 
-```bash
-sudo -iu deploy
-id
-docker info
-docker compose version
-```
+   ```bash
+   sudo usermod -aG sudo deploy
+   ```
 
-Use a login session rather than `su deploy`, which can retain the previous user's working directory and environment. Return to the administrator session with `exit` when finished. The fleet installer itself still runs on the central host.
+5. Do not use `su deploy`. It can keep the working directory and environment of the
+   previous user. Open a login session so that the new group memberships apply:
 
-Do not kill all processes belonging to `deploy`, delete the account, or remove all Docker containers and images as part of routine preparation. These actions can interrupt unrelated workloads and destroy data. Any reset must be separately planned, backed up, and limited to the intended deployment resources.
+   ```bash
+   sudo -iu deploy
+   id
+   docker info
+   docker compose version
+   ```
 
-## Configure a proxy only if required
+6. Make sure that the commands succeed. Then run `exit` to return to the administrator session.
 
-Skip this section on networks with direct outbound access. Replace `proxy.example.invalid` and the example port `8080` below with your site's approved proxy hostname and port.
+> [!CAUTION]
+> Do not do these actions during routine preparation:
+>
+> - Kill all processes of `deploy`.
+> - Delete the account.
+> - Remove all Docker containers and images.
+>
+> These actions can stop other workloads and destroy data. Plan, back up, and limit each
+> reset to the intended deployment resources.
 
-For commands in the deployment user's current shell, set:
+## Configure a Proxy (Only If Required)
 
-```bash
-export HTTP_PROXY="http://proxy.example.invalid:8080"
-export HTTPS_PROXY="$HTTP_PROXY"
-export NO_PROXY="127.0.0.1,localhost,::1"
-export http_proxy="$HTTP_PROXY"
-export https_proxy="$HTTPS_PROXY"
-export no_proxy="$NO_PROXY"
-```
+Skip this section if the node has direct outbound access.
 
-Add node hostnames and internal service destinations to `NO_PROXY` as required by your network. These exports apply only to this shell and its child processes: later SSH sessions, Hermes commands, `sudo`, system services, and containers do not automatically inherit them. Configure the appropriate environment for each context that requires the proxy. Do not embed proxy credentials in committed files or chats.
+In the examples, replace `proxy.example.invalid` and port `8080` with the approved proxy host and port of your site. Do not put proxy credentials in files or chats.
 
-For new containers and Docker build arguments, configure the Docker client as `deploy`:
+Do the steps in this order:
 
-```bash
-install -d -m 0700 "$HOME/.docker"
-```
+1. [Set the Shell Proxy](#set-the-shell-proxy)
+2. [Set the Docker Client Proxy](#set-the-docker-client-proxy)
+3. [Set the Docker Daemon Proxy](#set-the-docker-daemon-proxy)
+4. [Set the Apt and Git Proxy](#set-the-apt-and-git-proxy)
 
-Create or edit `$HOME/.docker/config.json` to include the following `proxies` object. If the file already exists, merge this object into it rather than overwriting registry credentials, credential-helper settings, or other configuration:
+### Set the Shell Proxy
 
-```json
-{
-  "proxies": {
-    "default": {
-      "httpProxy": "http://proxy.example.invalid:8080",
-      "httpsProxy": "http://proxy.example.invalid:8080",
-      "noProxy": "127.0.0.1,localhost,::1"
-    }
-  }
-}
-```
+1. Run these commands as `deploy`:
 
-After saving, restrict access to the file:
+   ```bash
+   export HTTP_PROXY="http://proxy.example.invalid:8080"
+   export HTTPS_PROXY="$HTTP_PROXY"
+   export NO_PROXY="127.0.0.1,localhost,::1"
+   export http_proxy="$HTTP_PROXY"
+   export https_proxy="$HTTPS_PROXY"
+   export no_proxy="$NO_PROXY"
+   ```
 
-```bash
-chmod 600 "$HOME/.docker/config.json"
-```
+2. Add node hostnames and internal service destinations to `NO_PROXY` as your network needs.
 
-This Docker client configuration affects new containers and builds; it does **not** configure the Docker daemon's image pulls, existing containers, host package managers, or Git. Configure those separately, as described below.
+> [!NOTE]
+> These settings apply only to this shell and its child processes. Later SSH sessions,
+> Hermes commands, `sudo`, system services, and containers do not inherit them. Configure
+> each of these contexts separately.
 
-### Docker daemon proxy
+### Set the Docker Client Proxy
 
-Image pulls are performed by the Docker daemon, which does not read the client configuration. Configure the daemon through a systemd drop-in, as an administrator with `sudo`:
+This setting affects new containers and Docker build arguments. It does not affect image pulls, existing containers, host package managers, or Git.
 
-```bash
-sudo mkdir -p /etc/systemd/system/docker.service.d
-sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<'EOF'
-[Service]
-Environment="HTTP_PROXY=http://proxy.example.invalid:8080"
-Environment="HTTPS_PROXY=http://proxy.example.invalid:8080"
-Environment="NO_PROXY=127.0.0.1,localhost,::1"
-EOF
-```
+1. Create the Docker configuration directory as `deploy`:
 
-Reload systemd and restart Docker, then confirm that the daemon picked up the settings:
+   ```bash
+   install -d -m 0700 "$HOME/.docker"
+   ```
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-systemctl show --property=Environment docker
-```
+2. Add this `proxies` object to `$HOME/.docker/config.json`. If the file exists, merge the
+   object into it. Do not overwrite registry credentials or credential-helper settings.
+   Use:
 
-Restarting Docker stops running containers unless live restore is enabled, so schedule it to avoid disrupting running workloads. If a drop-in file already exists, edit it instead of overwriting it. See [Docker daemon proxy configuration](https://docs.docker.com/engine/daemon/proxy/#systemd-unit-file) for details.
+   ```json
+   {
+     "proxies": {
+       "default": {
+         "httpProxy": "http://proxy.example.invalid:8080",
+         "httpsProxy": "http://proxy.example.invalid:8080",
+         "noProxy": "127.0.0.1,localhost,::1"
+       }
+     }
+   }
+   ```
 
-### Host package manager and Git
+3. Restrict access to the file:
 
-If the node installs packages through a proxy, configure `apt` as an administrator:
+   ```bash
+   chmod 600 "$HOME/.docker/config.json"
+   ```
 
-```bash
-sudo tee /etc/apt/apt.conf.d/95proxy >/dev/null <<'EOF'
-Acquire::http::Proxy "http://proxy.example.invalid:8080";
-Acquire::https::Proxy "http://proxy.example.invalid:8080";
-EOF
-```
+### Set the Docker Daemon Proxy
 
-If the deployment user clones repositories over HTTP(S) through the proxy, configure Git as `deploy`:
+The Docker daemon pulls the images. It does not read the client configuration. Use a
+systemd drop-in file.
 
-```bash
-git config --global http.proxy "http://proxy.example.invalid:8080"
-git config --global https.proxy "http://proxy.example.invalid:8080"
-```
+> [!CAUTION]
+> Restarting Docker stops the running containers, unless live restore is on. Do this when
+> it does not interrupt running workloads.
 
-Use only the approved proxy address; do not put proxy credentials in these files or in chats.
+1. If the drop-in file exists, edit it. Do not overwrite it. Otherwise, create the drop-in file as
+   an administrator:
+
+   ```bash
+   sudo mkdir -p /etc/systemd/system/docker.service.d
+   sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<'EOF'
+   [Service]
+   Environment="HTTP_PROXY=http://proxy.example.invalid:8080"
+   Environment="HTTPS_PROXY=http://proxy.example.invalid:8080"
+   Environment="NO_PROXY=127.0.0.1,localhost,::1"
+   EOF
+   ```
+
+2. Reload systemd and restart Docker:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart docker
+   ```
+
+3. Make sure that the daemon uses the settings:
+
+   ```bash
+   systemctl show --property=Environment docker
+   ```
+
+For more information, see [Docker daemon proxy configuration](https://docs.docker.com/engine/daemon/proxy/#systemd-unit-file).
+
+### Set the apt and Git Proxy
+
+1. If the node installs packages through the proxy, configure `apt` as an administrator:
+
+   ```bash
+   sudo tee /etc/apt/apt.conf.d/95proxy >/dev/null <<'EOF'
+   Acquire::http::Proxy "http://proxy.example.invalid:8080";
+   Acquire::https::Proxy "http://proxy.example.invalid:8080";
+   EOF
+   ```
+
+2. If `deploy` clones repositories over HTTP(S) through the proxy, configure Git as `deploy`:
+
+   ```bash
+   git config --global http.proxy "http://proxy.example.invalid:8080"
+   git config --global https.proxy "http://proxy.example.invalid:8080"
+   ```

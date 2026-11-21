@@ -10,15 +10,19 @@ Grafana and the sensor ingestion paths remain unchanged.
 - Use Python 3.12 or later for the example client.
 - Set the existing database and Grafana credentials.
 - Set `HOST_IP` to the gateway's IPv4 address.
-- Use an analytics image with `/config`, `/udfs/package`, and the native Kapacitor task API.
+- Use an analytics image with `/config`, `/udfs/package`, the native Kapacitor task API,
+  and a `/stop_pipeline` endpoint that shuts down the Kapacitor daemon.
 
-The server uses Kapacitor directly for task status and stop operations.
-It does not require the newer microservice `/pipeline_status` or `/stop_pipeline` endpoints.
+The server uses Kapacitor directly for running-task status and the microservice's
+`/stop_pipeline` endpoint for complete shutdown. Images whose stop endpoint only
+disables a task must be rebuilt with complete daemon shutdown support, together
+with the MCP image. The server verifies daemon shutdown before reporting success.
 
 ## Deploy
 
-**Caution:** Deployment targets stop the existing stack and remove its volumes.
-Use them only on a deployment that you intend to replace.
+> [!CAUTION]
+> Deployment targets stop the existing stack and remove its volumes.
+> Use them only on a deployment that you intend to replace.
 
 1. Set MCP credentials in the same shell:
 
@@ -67,7 +71,7 @@ Use them only on a deployment that you intend to replace.
    It does not modify application assets.
    Batch results use a 20-minute window.
 
-`num_of_streams` and `INCLUDE=validation` retain their existing behavior.
+`INCLUDE=validation` retains its existing behavior with MCP. The `num_of_streams` parameter is not supported.
 System metrics remain available in Grafana when collected; this MCP version does not expose host metrics.
 
 ## Trust the gateway certificate
@@ -79,8 +83,7 @@ The local gateway creates a self-signed certificate with `localhost` and `HOST_I
 Obtain this certificate through a trusted local connection:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose-mcp.yml \
-  exec -T nginx cat /opt/nginx/certs/cert.pem > ./mcp-gateway-ca.pem
+docker exec nginx_proxy cat /opt/nginx/certs/cert.pem > ./mcp-gateway-ca.pem
 export MCP_CA_FILE="$PWD/mcp-gateway-ca.pem"
 export MCP_URL="https://127.0.0.1:3000/mcp"
 ```
@@ -92,11 +95,16 @@ For production, provision an organization-trusted certificate and key instead of
 
 ## Use the example client
 
+The client reads `MCP_USERNAME`, `MCP_PASSWORD`, `HOST_IP`, and `GRAFANA_PORT` from the component `.env`
+and connects to `https://HOST_IP:GRAFANA_PORT/mcp` by default.
+Environment variables, including `MCP_URL` and `MCP_CA_FILE`, override values from `.env`.
+Run the client with `--help` to see all options; `--url` overrides `MCP_URL` and `--ca-file` overrides `MCP_CA_FILE`.
+
 From the component root:
 
 ```bash
 python3 -m venv mcp-server/example/.venv
-mcp-server/example/.venv/bin/pip install -r mcp-server/requirements.txt
+mcp-server/example/.venv/bin/pip install -r mcp-server/example/requirements.txt
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py describe
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py get_pipeline_status
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py start_pipeline \
@@ -114,19 +122,20 @@ The MCP container itself does not require a GPU.
 Device changes retain the active alert configuration.
 The server rejects control requests when a different UDF task is configured.
 
-**Caution:** `stop_pipeline` disables analytics only.
-Sensor ingestion and containers continue running.
-Streaming input received while analytics is disabled is not replayed automatically.
-One-shot simulators can exhaust their input before analytics starts; use continuous ingestion for interactive demonstrations.
+> [!CAUTION]
+> `stop_pipeline` disables analytics only.
+> Sensor ingestion and containers continue running.
+> Streaming input received while analytics is disabled is not replayed automatically.
+> One-shot simulators can exhaust their input before analytics starts; use continuous ingestion for interactive demonstrations.
 
 ## Tool data contract
 
 | Tool | Result |
-|---|---|
+| --- | --- |
 | `describe` | Tools, schemas, processing mode, classification codes, and operational guidance |
-| `get_pipeline_status` | Daemon health and selected task state, including `not_configured` |
+| `get_pipeline_status` | Daemon health and selected task state, including `not_configured` and `stopped` |
 | `start_pipeline` | Verified enabled state, selected device, and change indicator |
-| `stop_pipeline` | Verified disabled state or an explicit unconfigured state |
+| `stop_pipeline` | Verified daemon shutdown (`stopped`) or an explicit unconfigured state |
 | `list_sources` | Paginated source identifiers observed in the requested time window |
 | `list_insights_data` | Paginated points, classification, analysis flag, and timing values in seconds |
 | `get_anomaly_summary` | Processed, analysed, unanalysed, anomalous, and per-severity counts |
@@ -139,6 +148,9 @@ Use an explicit, fixed window while paging through results.
 List tools accept `page` and `page_size`, with at most 100 entries per page.
 They return `has_more` and `next_page`, not an expensive unrestricted total count.
 Point, summary, and metrics tools support an exact `source` filter.
+Use `list_sources` to find valid identifiers, then pass one as `--arguments '{"source":"<source-id>"}'`.
+Without a filter, results cover all sources, and the `window` object in the response omits `source`;
+it appears there only when a filter was applied.
 Source identifiers support up to 128 letters, digits, underscores, dots, colons, and hyphens.
 `list_insights_data` supports `all`, `anomaly`, `normal`, `low`, `medium`, and `high` severity filters.
 
@@ -166,5 +178,3 @@ Use `MCP=true` consistently for deployment, status, and shutdown.
 The server port is internal; only nginx exposes `/mcp`.
 Its internal `/health` endpoint provides liveness and does not require credentials.
 Browser origins must match the configured HTTPS gateway origin.
-
-For tests, see the [MCP testing instructions](../../../tests/README.md#mcp-server-tests).
